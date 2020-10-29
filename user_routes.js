@@ -12,16 +12,6 @@ const nodemailer = require("nodemailer");
 const User = require('./user_schems');
 const adminUser = require('./admin_schems');
 
-router.get('/', async (req, res) => {
-    try {
-        const userData = await User.find({}, '-password -_id');
-        res.status(200).json(userData);
-    } catch (err) {
-        console.error(err)
-        res.status(500).json({ "error": err });
-    }
-
-});
 
 router.post('/', [
     body('firstName', "First Name is Required").notEmpty(),
@@ -129,7 +119,7 @@ router.post('/', [
 
     });
 
-    router.post('/login', [
+    router.get('/login', [
 
         body("email", "Email is required").notEmpty().isEmail(),
         body("password", "Password is Required").notEmpty()
@@ -141,22 +131,42 @@ router.post('/', [
         try {
           const { email, password } = req.body;
       
-          let user = await Users.findOne({ email: email });
-          if (!user) {
-            return res.status(401).json({ Error: "Invalid Credentials" });
-          }
-          const isValid = await bcrypt.compare(password, user.password);
-          if (!isValid) {
-            return res.status(401).json({ Error: "Invalid Credentials" });
-          }
-          const payload = {
-            user: {
-              id: user._id
+          let customer = await User.findOne({ email: email });
+          let admin = await adminUser.findOne({ email: email });
+          if (customer) {
+            const isValid = await bcrypt.compare(password, customer.password);
+            if (!isValid) {
+              return res.status(401).json({ Error: "Invalid Credentials" });
             }
+            const payload = {
+              user: {
+                id: customer._id,
+                role : customer.role
+              }
+            }
+            const key = config.secret_key;
+            const accessToken = await jwt.sign(payload, key, { expiresIn: 6000 });
+            return res.json({ accessToken });
+            
+          };
+          if (admin) {
+            const isValid = await bcrypt.compare(password, admin.password);
+            if (!isValid) {
+              return res.status(401).json({ Error: "Invalid Credentials" });
+            }
+            const payload = {
+              user: {
+                id: admin._id,
+                role : admin.role,
+                email:admin.email
+              }
+            }
+            const key = config.secret_key;
+            const accessToken = await jwt.sign(payload, key, { expiresIn: 6000 });
+            return res.json({ accessToken });
+            
           }
-          const key = config.SECRET_KEY;
-          const accessToken = await jwt.sign(payload, key, { expiresIn: 60 });
-          return res.json({ accessToken });
+          
       
         } catch (err) {
           console.error(err);
