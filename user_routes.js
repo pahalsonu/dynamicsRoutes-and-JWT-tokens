@@ -141,7 +141,8 @@ router.post('/', [
             const payload = {
               user: {
                 id: customer._id,
-                role : customer.role
+                role : customer.role,
+                email :customer.email
               }
             }
             const key = config.secret_key;
@@ -172,7 +173,43 @@ router.post('/', [
           console.error(err);
           return res.status(500).json({ Errors: "Server Error" });
         }
-      })
+      });
+
+      router.get('/dashboard', [
+
+        body("accessToken", "AccessToken is required").notEmpty().isString(),
+        
+      ], async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(403).json({ Errors: errors.array() });
+        }
+        try {
+          const { accessToken } = req.body;
+          var decoded = jwt.decode(accessToken);
+          const findTheUser = decoded.user.email
+          console.log(decoded)
+          let customer = await User.findOne({ email: findTheUser });
+          let admin = await adminUser.findOne({ email: findTheUser });
+         
+          if (customer) {
+                     
+            
+            return res.json({ "i am Customer and  this is my dashbaord":"CUSTOMER's DASHBOARD" });
+            
+          };
+          if (admin) {
+           
+            return res.json({ "i am Admin and this is my dashbaord":"ADMIN's DASHBOARD" });
+            
+          }
+          
+      
+        } catch (err) {
+          console.error(err);
+          return res.status(500).json({ Errors: "Server Error" });
+        }
+      });
 
 
 
