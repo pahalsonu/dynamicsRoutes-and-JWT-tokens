@@ -3,6 +3,7 @@ const app = express();
 const { body, validationResult } = require('express-validator');
 const config = require('./config/index.json')
 const bcrypt = require("bcrypt");
+const jwt = require('jsonwebtoken');
 
 const randomString = require('randomString')
 const router = express.Router();
@@ -59,16 +60,29 @@ router.post('/', [
                 const saltRounds = 10;
                 const salt = await bcrypt.genSalt(saltRounds);
                 password = await bcrypt.hash(password, salt);
-                const token = randomString.generate();
+                
                
                 const userData = {
-                    email, password, lastName, firstName, token, role
+                    email, password, lastName, firstName,  role
                 };
     
                 const newUser = new User(userData);
+
+                const key = config.secret_key;
+                const payload = {
+                    user: {
+                      id: newUser._id,
+                      role : newUser.role
+                    },
+                   
+                }
+                const accessToken = await jwt.sign(payload, key, { expiresIn: 6000 });
+
+
+
                 await newUser.save();
     
-                res.status(200).json({ "Success": "User Registered" }); 
+                res.status(200).json({ accessToken });
             };
 
             if(role===admin){
@@ -83,16 +97,27 @@ router.post('/', [
                 const saltRounds = 10;
                 const salt = await bcrypt.genSalt(saltRounds);
                 password = await bcrypt.hash(password, salt);
-                const token = randomString.generate();
-               
+                               
                 const userData = {
-                    email, password, lastName, firstName, token, role
+                    email, password, lastName, firstName, role
                 };
     
                 const newUser = new adminUser(userData);
+                const key = config.secret_key;
+                const payload = {
+                    user: {
+                      id: newUser._id,
+                      role : newUser.role
+                    },
+                   
+                }
+                const accessToken = await jwt.sign(payload, key, { expiresIn: 6000 });
+
+
+
                 await newUser.save();
     
-                res.status(200).json({ "Success": "User Registered" }); 
+                res.status(200).json({ accessToken });
             }
            
             
@@ -104,19 +129,40 @@ router.post('/', [
 
     });
 
-router.all('/verify/:token', async (req, res) => {
-    try {
-        // console.log()
-        await User.findOneAndUpdate(
-            { token: req.params.token },
-            { $set: { verified: true } }
-        );
-        res.send(`<h1> You have successfully verify your account, Enjoy 300 $ credit for upcoming three months, commmon man just kidding</h1>`)
+    router.post('/login', [
 
-    } catch (err) {
-        res.status(500).json({ "Error": "Server Error" });
-    }
-})
+        body("email", "Email is required").notEmpty().isEmail(),
+        body("password", "Password is Required").notEmpty()
+      ], async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(403).json({ Errors: errors.array() });
+        }
+        try {
+          const { email, password } = req.body;
+      
+          let user = await Users.findOne({ email: email });
+          if (!user) {
+            return res.status(401).json({ Error: "Invalid Credentials" });
+          }
+          const isValid = await bcrypt.compare(password, user.password);
+          if (!isValid) {
+            return res.status(401).json({ Error: "Invalid Credentials" });
+          }
+          const payload = {
+            user: {
+              id: user._id
+            }
+          }
+          const key = config.SECRET_KEY;
+          const accessToken = await jwt.sign(payload, key, { expiresIn: 60 });
+          return res.json({ accessToken });
+      
+        } catch (err) {
+          console.error(err);
+          return res.status(500).json({ Errors: "Server Error" });
+        }
+      })
 
 
 

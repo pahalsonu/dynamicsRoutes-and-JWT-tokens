@@ -34,4 +34,4 @@ const userSchema = new Schema({
 });
 
 //mongoose.model("restapi"(data base), userSchema, "new_users"(collection name))
-module.exports = mongoose.model("test", userSchema, "pahal_users");
+module.exports = mongoose.model("test", userSchema, "pahal_users2");
